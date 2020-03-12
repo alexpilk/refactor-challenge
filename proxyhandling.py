@@ -1,9 +1,9 @@
 import random
+from typing import List, Dict, Callable, Any
 
 import numpy as np
 import pymongo
 from pymongo import ReplaceOne
-from typing import List, Dict, Callable, Any
 
 
 class ProxyError(Exception):
@@ -15,17 +15,21 @@ class FailedAfterRetries(Exception):
 
 
 def accepts_retries(default_retries: int) -> Callable:
+    """
+    Causes decorated method to retry in case of pymongo autoconnect error.
+    """
+
     def decorator(func: Callable) -> Callable:
 
         def wrapper(*args, retries: int = default_retries, **kwargs) -> Any:
 
-            if retries < 0:
+            if retries <= 0:
                 raise FailedAfterRetries
             try:
                 return func(*args, **kwargs)
             except pymongo.errors.AutoReconnect:
-                print("pymongo error in proxy.pick: could not autoreconnect")
-                return wrapper(*args, retries=retries-1, **kwargs)
+                print(f"Retrying {func.__name__}...")
+                return wrapper(*args, retries=retries - 1, **kwargs)
 
         return wrapper
 
@@ -38,6 +42,9 @@ class DBProxyHandler:
         self.db = db
 
     def upload(self, proxies: List[str]) -> None:
+        """
+        Saves addresses of proxies in the database.
+        """
         requests = [
             ReplaceOne({"address": item}, {"address": item, "successful_job_completion": 0}, upsert=True) for
             item in
@@ -48,6 +55,9 @@ class DBProxyHandler:
 
     @accepts_retries(3)
     def pick(self, number_of_proxies: int = 1) -> List[str] or str:
+        """
+        Picks given number of proxies based on proxy performance and a bit of randomness.
+        """
         if number_of_proxies < 1:
             raise ProxyError("You must specify at least one proxy")
 
@@ -73,6 +83,10 @@ class DBProxyHandler:
 
     @staticmethod
     def _generate_probabilities(scores: List[int]) -> List[float]:
+        """
+        Translates number of successful/unsuccessful requests to probabilities, that sum up to 1.
+        """
+
         def translate_score(score):
             return min(max(score, -5), 5) + 5
 
@@ -82,6 +96,9 @@ class DBProxyHandler:
 
     @accepts_retries(3)
     def feedback(self, address: str, counter: int = 1) -> None:
+        """
+        Adds number of successful/unsuccessful requests to given proxy.
+        """
         proxy = self.db.proxies.find_one({"address": address})
         new_score = proxy.get("successful_job_completion", 0) + counter if proxy else counter
         self.db.proxies.update_one({"address": address}, {
