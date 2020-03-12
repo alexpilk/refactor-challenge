@@ -100,3 +100,27 @@ def test_pick_fails_after_retries(handler):
     handler.db.proxies.find = raise_reconnect_exception
     with pytest.raises(FailedAfterRetries):
         handler.pick(1)
+
+
+@mongopatch
+def test_can_pick_proxy_after_retries(handler):
+    uploaded_proxies = ['http://proxy1.com', 'http://proxy2.com']
+    handler.upload(uploaded_proxies)
+
+    has_failed = False
+    find_operation = handler.db.proxies.find
+
+    def fail_once(*args, **kwargs):
+        """
+        Fails once, then works after first retry.
+        """
+        nonlocal has_failed
+        if has_failed:
+            return find_operation(*args, **kwargs)
+        else:
+            has_failed = True
+            raise_reconnect_exception()
+
+    handler.db.proxies.find = fail_once
+    fetched_proxy = handler.pick(1)
+    assert fetched_proxy in uploaded_proxies
