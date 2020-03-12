@@ -1,0 +1,8 @@
+pymongo
+requests
+bs4
+flask
+joblib
+pytest
+mongomock
+furl
