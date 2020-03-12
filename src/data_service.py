@@ -1,6 +1,4 @@
 #!flask/bin/python
-import os
-import sys
 from multiprocessing.pool import ThreadPool
 
 from requests.exceptions import ProxyError, ConnectTimeout, SSLError, ConnectionError, ChunkedEncodingError, ReadTimeout
@@ -11,13 +9,13 @@ import pymongo
 import traceback
 import pickle
 import base64
-from proxyhandling import DBProxyHandler
-from captcha_execution import CaptchaError
+from src.proxyhandling import DBProxyHandler
+from src.captcha_execution import CaptchaError
 import multiprocessing
 from bs4 import BeautifulSoup
 import bz2
-from pdfunctions import timeDiffToNow, SkipURL
-from webcacheclient import dbNormalizeURL, isValidURL
+from src.pdfunctions import timeDiffToNow, SkipURL
+from src.webcacheclient import dbNormalizeURL, isValidURL
 import requests
 
 from typing import Union

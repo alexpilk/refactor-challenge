@@ -1,5 +1,5 @@
 import json
-from webcacheclient import WebCacheClient
+from src.webcacheclient import WebCacheClient
 
 
 def play_get_request():
@@ -12,7 +12,6 @@ def play_get_request():
 
 
 def play_get_request():
-    import sys
     client = WebCacheClient()
 
     urlList = [f"https://nominatim.openstreetmap.org/search/Bank,{zipcode},Switzerland?osm_type=N&format=json"
@@ -56,6 +55,6 @@ def getProxy():
 if __name__ == '__main__':
     # play_post_request()
     # play_post_data_request()
-    play_get_request()
+    # play_get_request()
     #play_get_request_without_proxies()
-    # getProxy()
+    getProxy()

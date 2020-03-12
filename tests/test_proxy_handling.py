@@ -3,8 +3,8 @@ from unittest.mock import patch
 import pymongo
 import pytest
 
-from conftest import mongopatch
-from proxyhandling import FailedAfterRetries, ProxyError
+from tests.conftest import mongopatch
+from src.proxyhandling import FailedAfterRetries, ProxyError
 
 
 @mongopatch

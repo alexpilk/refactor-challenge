@@ -1,7 +1,7 @@
 import mongomock
 import pytest
 
-from proxyhandling import DBProxyHandler
+from src.proxyhandling import DBProxyHandler
 
 MONGO_LOCATION = "127.0.0.1"
 

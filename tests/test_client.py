@@ -1,6 +1,6 @@
 import pytest
 
-from webcacheclient import WebCacheClient
+from src.webcacheclient import WebCacheClient
 
 
 class Interceptor:
