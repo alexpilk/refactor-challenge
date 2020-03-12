@@ -4,6 +4,11 @@ from joblib import Parallel, delayed
 import random
 from pymongo import InsertOne, DeleteOne, ReplaceOne
 import pymongo
+import numpy as np
+
+
+class FailedAfterRetries(Exception):
+    pass
 
 
 class DBProxyHandler:
@@ -25,15 +30,21 @@ class DBProxyHandler:
             raise ValueError("you must at least one proxy")
 
         if nTries < 3:
-            return
+            raise FailedAfterRetries
 
         try:
             # strategy: proxys that work well shoul be reused more often. Proxies that didn't work for 45 consecutive requests are dropped
             proxies = list(self.db.proxies.find({"successful_job_completion": {"$gt": -30}}).limit(min(10000, 1000 * n)))
+            print(proxies)
             for proxy in proxies:
-                proxy["score"] = random.random() * min(max(proxy["successful_job_completion"], -5), 5)
+                proxy["score"] = random.random() * min(max(proxy["successful_job_completion"], -5), 5) + 5
 
-            chosenProxies = random.choices(population=proxies, weights=[proxy["score"] for proxy in proxies], k=n)
+            # chosenProxies = random.choices(population=proxies, weights=[proxy["score"] for proxy in proxies], k=n)
+            scores = [proxy["score"] for proxy in proxies]
+            score_sum = np.sum(scores)
+            p = np.array(scores)
+            p /= score_sum
+            chosenProxies = np.random.choice(proxies, min(n, len(proxies)), replace=False, p=p if score_sum != 0 else None)
 
             if len(proxies) == 0:
                 raise ValueError("no proxies available!")
@@ -48,13 +59,12 @@ class DBProxyHandler:
 
     def feedback(self, address, counter=1, nTries=3):
         if nTries < 0:
-            return
+            raise FailedAfterRetries
 
         try:
             proxy = self.db.proxies.find_one({"address": address})
             self.db.proxies.update_one({"address": address}, {
-                "$set": {"successful_job_completion": proxy.get("successful_job_completion", 0) if proxy is not None else 0
-                                                           + counter}}, upsert=True)  # allow max 15 plus points. if proxy goes offline, max 45 req will drop it
+                "$set": {"successful_job_completion": (proxy.get("successful_job_completion", 0) + counter if proxy is not None else counter)}}, upsert=True)  # allow max 15 plus points. if proxy goes offline, max 45 req will drop it
         except pymongo.errors.AutoReconnect:
             print("pymongo error in feedback: could not autoreconnect")
             self.feedback(address, counter, nTries-1)
