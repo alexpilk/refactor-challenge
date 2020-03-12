@@ -9,6 +9,24 @@ class FailedAfterRetries(Exception):
     pass
 
 
+def accepts_retries(default_retries):
+    def decorator(func):
+
+        def wrapper(*args, retries=default_retries, **kwargs):
+
+            if retries < 0:
+                raise FailedAfterRetries
+            try:
+                return func(*args, **kwargs)
+            except pymongo.errors.AutoReconnect:
+                print("pymongo error in proxy.pick: could not autoreconnect")
+                return wrapper(*args, retries=retries-1, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 class DBProxyHandler:
 
     def __init__(self, db):
@@ -23,27 +41,21 @@ class DBProxyHandler:
             requests,
             ordered=False)
 
-    def pick(self, n=1, retries=3):
+    @accepts_retries(3)
+    def pick(self, n=1):
         if n < 1:
             raise ValueError("you must at least one proxy")
 
-        if retries < 3:
-            raise FailedAfterRetries
+        proxies = self._filter_active_proxies(n)
+        addresses = [proxy["address"] for proxy in proxies]
+        scores = [proxy["successful_job_completion"] for proxy in proxies]
 
-        try:
-            proxies = self._filter_active_proxies(n)
-            addresses = [proxy["address"] for proxy in proxies]
-            scores = [proxy["successful_job_completion"] for proxy in proxies]
-            scores = self._calculate_scores(scores)
-            p = self._calculate_probabilities(scores)
-            chosen_proxies = np.random.choice(addresses, min(n, len(proxies)), replace=False,
-                                              p=p)
-            if not proxies:
-                raise ValueError("no proxies available!")
-            return chosen_proxies[0] if n == 1 else chosen_proxies
-        except pymongo.errors.AutoReconnect:
-            print("pymongo error in proxy.pick: could not autoreconnect")
-            self.pick(n, retries - 1)
+        probabilities = self._generate_probabilities(scores)
+        sample_size = min(n, len(proxies))
+        chosen_proxies = np.random.choice(addresses, sample_size, replace=False, p=probabilities)
+        if not proxies:
+            raise ValueError("no proxies available!")
+        return chosen_proxies[0] if n == 1 else chosen_proxies
 
     def _filter_active_proxies(self, n):
         """
@@ -51,26 +63,19 @@ class DBProxyHandler:
         """
         return list(self.db.proxies.find({"successful_job_completion": {"$gt": -30}}).limit(min(10000, 1000 * n)))
 
-    def _calculate_scores(self, proxies):
+    @staticmethod
+    def _generate_probabilities(scores):
         def translate_score(score):
             return min(max(score, -5), 5) + 5
 
-        return [random.random() * translate_score(score) for score in proxies]
+        randomized_scores = [random.random() * translate_score(score) for score in scores]
+        score_sum = np.sum(randomized_scores)
+        return np.array(randomized_scores) / score_sum if score_sum else None
 
-    def _calculate_probabilities(self, scores):
-        score_sum = np.sum(scores)
-        return np.array(scores) / score_sum if score_sum else None
-
-    def feedback(self, address, counter=1, retries=3):
-        if retries < 0:
-            raise FailedAfterRetries
-
-        try:
-            proxy = self.db.proxies.find_one({"address": address})
-            new_score = proxy.get("successful_job_completion", 0) + counter if proxy else counter
-            self.db.proxies.update_one({"address": address}, {
-                "$set": {"successful_job_completion": new_score}},
-                                       upsert=True)
-        except pymongo.errors.AutoReconnect:
-            print("pymongo error in feedback: could not autoreconnect")
-            self.feedback(address, counter, retries - 1)
+    @accepts_retries(3)
+    def feedback(self, address, counter=1):
+        proxy = self.db.proxies.find_one({"address": address})
+        new_score = proxy.get("successful_job_completion", 0) + counter if proxy else counter
+        self.db.proxies.update_one({"address": address}, {
+            "$set": {"successful_job_completion": new_score}},
+                                   upsert=True)
