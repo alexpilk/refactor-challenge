@@ -36,7 +36,7 @@ def accepts_retries(default_retries: int) -> Callable:
     return decorator
 
 
-class DBProxyHandler:
+class ProxyHandler:
 
     def __init__(self, db: pymongo.collection.Collection):
         self.db = db

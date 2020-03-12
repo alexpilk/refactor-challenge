@@ -5,12 +5,6 @@ import pytest
 from tests.conftest import mongopatch
 
 
-@pytest.fixture
-def app():
-    from src.data_service import app
-    return app
-
-
 @mongopatch
 def test_can_get_proxies(client, handler, mongo_client):
     with patch('src.data_service.get_mongo_client', lambda: mongo_client):

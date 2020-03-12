@@ -4,16 +4,22 @@ import json
 import os
 import pickle
 from os.path import expanduser
+from typing import List
 
 import furl
 import requests
 
 
-class WebCacheClient: # add constructor to set webcache location programmatically. fall back to config if no explicit location provided
+class NoProxies(Exception):
+    pass
+
+
+class WebCacheClient:  # add constructor to set webcache location programmatically. fall back to config if no explicit location provided
     WEBCACHE_LOCATION = "localhost:9011"
 
     def __init__(self):
-        expectedEnvLocation = "%s/.labscape.env" % expanduser("~") #it's probably better to specify the webcache IP in the file rather than the env name
+        expectedEnvLocation = "%s/.labscape.env" % expanduser(
+            "~")  # it's probably better to specify the webcache IP in the file rather than the env name
         if os.path.exists(expectedEnvLocation):
             with open(expectedEnvLocation, "r") as fi:
                 content = fi.read()
@@ -25,23 +31,28 @@ class WebCacheClient: # add constructor to set webcache location programmaticall
                     print("using docker-environment for cache")
                     self.WEBCACHE_LOCATION = "webcache:9011"
 
-    def getProxyList(self, number_of_proxies: int = 1000):
+    def get_proxies(self, number_of_proxies: int = 1000) -> List[str]:
         """
-        gets list of proxies from data service. Some of the proxies might not work, but the probability of having a
+        Gets list of proxies from data service. Some of the proxies might not work, but the probability of having a
         majority of good proxies is rather high.
-        :param numProxies: maximal number of proxies returned (the higher the number of proxies, the larger the share of non-working proxies. Usually you can expect there to be around 1500 working proxies in the service at any given time)
+
+        :param number_of_proxies: maximum number of proxies returned
+            (the higher the number of proxies, the larger the share of non-working proxies.
+            Usually you can expect there to be around 1500 working proxies in the service at any given time)
         :return: list of proxies
         """
         if number_of_proxies < 1:
             return []
-        url = "http://%s/proxies/%s" % (self.WEBCACHE_LOCATION, number_of_proxies)
+
+        url = f"http://{self.WEBCACHE_LOCATION}/proxies/{number_of_proxies}"
         data = self._get(url)
+
         if data is not None and "response" in data:
             return data["response"]
         else:
-            raise ValueError("could not get proxies: %s" % data)
+            raise NoProxies(f"Could not get proxies: {data}")
 
-    def fetchURLs(self, urlList, category:str, output, method="GET", maxAgeDays=360):
+    def fetchURLs(self, urlList, category: str, output, method="GET", maxAgeDays=360):
         '''
         uses data service to fetch a list of urls
 
@@ -71,7 +82,7 @@ class WebCacheClient: # add constructor to set webcache location programmaticall
         if any('localhost' in url[0] or '127.0.0.1' in url[0] for url in filteredUrlList):
             data = {}
             for url in filteredUrlList:
-                data[url[0]] = {'content':self._get(url[0])}
+                data[url[0]] = {'content': self._get(url[0])}
             return data
         else:
             data = requests.post(serviceURL, {"urls": json.dumps(filteredUrlList)}).json()

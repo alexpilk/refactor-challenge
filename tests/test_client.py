@@ -1,6 +1,6 @@
 import pytest
 
-from src.webcacheclient import WebCacheClient
+from src.webcacheclient import WebCacheClient, NoProxies
 
 
 class Interceptor:
@@ -39,7 +39,7 @@ def test_can_get_proxies(webcache_client):
             }
         )
     )
-    proxies = webcache_client.getProxyList(2)
+    proxies = webcache_client.get_proxies(2)
     assert proxies == ['http://proxy1.com', 'http://proxy2.com']
 
 
@@ -49,9 +49,9 @@ def test_fails_if_no_proxies_are_available(webcache_client):
             'http://localhost:9011/proxies/2', None
         )
     )
-    with pytest.raises(ValueError):
-        webcache_client.getProxyList(2)
+    with pytest.raises(NoProxies):
+        webcache_client.get_proxies(2)
 
 
 def test_zero_proxies(webcache_client):
-    assert webcache_client.getProxyList(0) == []
+    assert webcache_client.get_proxies(0) == []

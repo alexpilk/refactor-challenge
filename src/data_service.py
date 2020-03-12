@@ -1,28 +1,26 @@
 #!flask/bin/python
+import base64
+import bz2
+import json
+import multiprocessing
+import os
+import pickle
+import re
+import traceback
+from datetime import datetime, timedelta
 from multiprocessing.pool import ThreadPool
+from typing import Union
 
+import pymongo
+import requests
+from bs4 import BeautifulSoup
+from flask import Flask, jsonify, abort, make_response, request
 from requests.exceptions import ProxyError, ConnectTimeout, SSLError, ConnectionError, ChunkedEncodingError, ReadTimeout
 
-import json
-from datetime import datetime, timedelta
-import pymongo
-import traceback
-import pickle
-import base64
-from src.proxyhandling import DBProxyHandler
 from src.captcha_execution import CaptchaError
-import multiprocessing
-from bs4 import BeautifulSoup
-import bz2
 from src.pdfunctions import timeDiffToNow, SkipURL
+from src.proxyhandling import ProxyHandler
 from src.webcacheclient import dbNormalizeURL, isValidURL
-import requests
-
-from typing import Union
-import os
-import re
-
-from flask import Flask, jsonify, abort, make_response, request
 
 app = Flask(__name__)
 
@@ -55,12 +53,13 @@ def fetchURL(maxAgeDays, category, output="html", method="GET"):
         abort(500, e)
 
 
-@app.route("/proxies/<int:numProxies>", methods=["GET"])
-def getProxies(numProxies):
-    client = get_mongo_client()
-    db = client.webdata
-    ph = DBProxyHandler(db)
-    data = {"response": ph.pick(numProxies)}
+@app.route("/proxies/<int:number_of_proxies>", methods=["GET"])
+def get_proxies(number_of_proxies):
+    db = get_mongo_client().webdata
+    proxy_handler = ProxyHandler(db)
+    data = {
+        "response": proxy_handler.pick(number_of_proxies)
+    }
     return make_response(jsonify(**data))
 
 
@@ -156,7 +155,7 @@ def tryNTimesToGetPage(urlKey: str, urlTuple: tuple, method: str, output: str, c
         return
     with pymongo.MongoClient(MONGO_LOCATION) as client:
         db = client.webdata
-        ph = DBProxyHandler(db)
+        ph = ProxyHandler(db)
         proxy = ph.pick()
         try:
             result = obtainPage(urlTuple, method, output, proxy)
