@@ -71,7 +71,7 @@ class DBProxyHandler:
         probabilities = self._generate_probabilities(scores)
         sample_size = min(number_of_proxies, len(proxies))
         chosen_proxies = np.random.choice(addresses, sample_size, replace=False, p=probabilities)
-        return chosen_proxies[0] if number_of_proxies == 1 else chosen_proxies
+        return chosen_proxies[0] if number_of_proxies == 1 else list(chosen_proxies)
 
     def _filter_active_proxies(self, number_of_proxies: int) -> List[Dict]:
         """

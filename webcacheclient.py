@@ -25,25 +25,21 @@ class WebCacheClient: # add constructor to set webcache location programmaticall
                     print("using docker-environment for cache")
                     self.WEBCACHE_LOCATION = "webcache:9011"
 
-    def getProxyList(self, numProxies: int = 1000):
-        '''
+    def getProxyList(self, number_of_proxies: int = 1000):
+        """
         gets list of proxies from data service. Some of the proxies might not work, but the probability of having a
         majority of good proxies is rather high.
         :param numProxies: maximal number of proxies returned (the higher the number of proxies, the larger the share of non-working proxies. Usually you can expect there to be around 1500 working proxies in the service at any given time)
         :return: list of proxies
-        '''
-        if type(numProxies) != int:
-            raise ValueError("numProxies must be an integer")
-
-        if numProxies < 1:
+        """
+        if number_of_proxies < 1:
             return []
+        url = "http://%s/proxies/%s" % (self.WEBCACHE_LOCATION, number_of_proxies)
+        data = self._get(url)
+        if data is not None and "response" in data:
+            return data["response"]
         else:
-            serviceURL = "http://%s/proxies/%s" % (self.WEBCACHE_LOCATION, numProxies)
-            data = requests.get(serviceURL).json()
-            if data is not None and "response" in data:
-                return data["response"]
-            else:
-                raise ValueError("could not get proxies: %s" % data)
+            raise ValueError("could not get proxies: %s" % data)
 
     def fetchURLs(self, urlList, category:str, output, method="GET", maxAgeDays=360):
         '''
@@ -75,7 +71,7 @@ class WebCacheClient: # add constructor to set webcache location programmaticall
         if any('localhost' in url[0] or '127.0.0.1' in url[0] for url in filteredUrlList):
             data = {}
             for url in filteredUrlList:
-                data[url[0]] = {'content':requests.get(url[0]).json()}
+                data[url[0]] = {'content':self._get(url[0])}
             return data
         else:
             data = requests.post(serviceURL, {"urls": json.dumps(filteredUrlList)}).json()
@@ -102,6 +98,10 @@ class WebCacheClient: # add constructor to set webcache location programmaticall
 
             return {urlItem: urlKeys.get(dbNormalizeURL(urlItem), {"url": urlItem, "content": None, "error": True})
                     for urlItem in urlList}
+
+    @staticmethod
+    def _get(url):
+        return requests.get(url).json()
 
 
 def isValidURL(url):

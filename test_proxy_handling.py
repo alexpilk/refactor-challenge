@@ -1,26 +1,10 @@
 from unittest.mock import patch
 
-import mongomock
 import pymongo
 import pytest
 
-from proxyhandling import DBProxyHandler, FailedAfterRetries, ProxyError
-
-MONGO_LOCATION = "127.0.0.1"
-
-mongopatch = mongomock.patch(servers=((MONGO_LOCATION, 27017),))
-
-
-@pytest.fixture
-def db():
-    client = mongomock.MongoClient(MONGO_LOCATION)
-    db = client.webdata
-    return db
-
-
-@pytest.fixture
-def handler(db):
-    return DBProxyHandler(db)
+from conftest import mongopatch
+from proxyhandling import FailedAfterRetries, ProxyError
 
 
 @mongopatch
