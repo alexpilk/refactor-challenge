@@ -35,6 +35,10 @@ FLASK_IP = "127.0.0.1"
 MAX_TIMES_FOR_URL = 20
 
 
+def get_mongo_client():
+    return pymongo.MongoClient(MONGO_LOCATION)
+
+
 @app.route("/fetch/<int:maxAgeDays>/<string:category>/<string:output>/<string:method>", methods=["POST"])
 def fetchURL(maxAgeDays, category, output="html", method="GET"):
     try:
@@ -55,7 +59,7 @@ def fetchURL(maxAgeDays, category, output="html", method="GET"):
 
 @app.route("/proxies/<int:numProxies>", methods=["GET"])
 def getProxies(numProxies):
-    client = pymongo.MongoClient(MONGO_LOCATION)
+    client = get_mongo_client()
     db = client.webdata
     ph = DBProxyHandler(db)
     data = {"response": ph.pick(numProxies)}
@@ -69,7 +73,7 @@ def getData(urlList: list, method: str, maxAgeDays: int, category, output="xml")
     urlData = {dbNormalizeURL(urlTuple): {"urlTuple": urlTuple, "urlKey": dbNormalizeURL(urlTuple)} for urlTuple in
                urlList}
 
-    db = pymongo.MongoClient(MONGO_LOCATION).webdata
+    db = get_mongo_client().webdata
     existing = {data["urlKey"]: data for data in
                 db.webpages.find({"urlKey": {"$in": list(urlData.keys())}, "format": output,
                                   "creation_date": {"$gt": datetime.now() - timedelta(days=maxAgeDays)}})}
@@ -92,7 +96,7 @@ def getData(urlList: list, method: str, maxAgeDays: int, category, output="xml")
 
         for proc in processes:
             proc.join()
-        client = pymongo.MongoClient(MONGO_LOCATION)
+        client = get_mongo_client()
         db = client.webdata
         remainingData = {data["urlKey"]: data for data in db.webpages.find(
             {"urlKey": {"$in": list(urlData.keys())}, "format": output,
@@ -126,7 +130,7 @@ def processURLChunk(chunk, urlData, method, output, category, maxAgeDays):
 
 
 def updateDBEntry(result, urlTuple, nTries=2):
-    client = pymongo.MongoClient(MONGO_LOCATION)
+    client = get_mongo_client()
     db = client.webdata
     if nTries < 0:
         return None
