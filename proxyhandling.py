@@ -6,6 +6,10 @@ from pymongo import ReplaceOne
 from typing import List, Dict, Callable, Any
 
 
+class ProxyError(Exception):
+    pass
+
+
 class FailedAfterRetries(Exception):
     pass
 
@@ -45,11 +49,11 @@ class DBProxyHandler:
     @accepts_retries(3)
     def pick(self, number_of_proxies: int = 1) -> List[str] or str:
         if number_of_proxies < 1:
-            raise ValueError("You must specify at least one proxy")
+            raise ProxyError("You must specify at least one proxy")
 
         proxies = self._filter_active_proxies(number_of_proxies)
         if not proxies:
-            raise ValueError("No proxies available!")
+            raise ProxyError("No proxies available!")
 
         addresses = [proxy["address"] for proxy in proxies]
         scores = [proxy["successful_job_completion"] for proxy in proxies]

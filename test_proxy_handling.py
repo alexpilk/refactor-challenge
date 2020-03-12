@@ -4,7 +4,7 @@ import mongomock
 import pymongo
 import pytest
 
-from proxyhandling import DBProxyHandler, FailedAfterRetries
+from proxyhandling import DBProxyHandler, FailedAfterRetries, ProxyError
 
 MONGO_LOCATION = "127.0.0.1"
 
@@ -21,6 +21,12 @@ def db():
 @pytest.fixture
 def handler(db):
     return DBProxyHandler(db)
+
+
+@mongopatch
+def test_fails_when_no_proxies_available(handler):
+    with pytest.raises(ProxyError):
+        handler.pick(1)
 
 
 @mongopatch
@@ -42,7 +48,7 @@ def test_can_pick_multiple_proxies(handler):
 @mongopatch
 @pytest.mark.parametrize('number_of_proxies', (0, -5))
 def test_cannot_pick_less_than_one_proxy(handler, number_of_proxies):
-    with pytest.raises(ValueError):
+    with pytest.raises(ProxyError):
         handler.pick(number_of_proxies)
 
 
